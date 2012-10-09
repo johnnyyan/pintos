@@ -28,4 +28,6 @@ tests/threads_SRC += tests/threads/priority-preempt.c
 tests/threads_SRC += tests/threads/priority-sema.c
 tests/threads_SRC += tests/threads/priority-condvar.c
 tests/threads_SRC += tests/threads/priority-donate-chain.c
+tests/threads_SRC += tests/threads/P1_threadYield.c
+tests/threads_SRC += tests/threads/P1_threadInterrupt.c
 

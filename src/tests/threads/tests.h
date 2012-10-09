@@ -33,4 +33,5 @@ extern test_func test_mlfqs_nice_2;
 extern test_func test_mlfqs_nice_10;
 extern test_func test_mlfqs_block;
 extern test_func test_P1_threadYield;
+extern test_func test_P1_threadInterrupt;
 #endif
