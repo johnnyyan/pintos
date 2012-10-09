@@ -29,6 +29,7 @@ static const struct test tests[] =
     {"priority-preempt", test_priority_preempt},
     {"priority-sema", test_priority_sema},
     {"priority-condvar", test_priority_condvar},
+    {"P1_threadYield", test_P1_threadYield},
 };
 
 static const char *test_name;
