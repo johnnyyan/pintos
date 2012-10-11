@@ -371,41 +371,41 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 void sentinel_init(struct sentinel *s, int64_t initialRemaining){
 	ASSERT(s != NULL);
 	s->remaining = initialRemaining;
-	s->t = NULL;
+	list_init(&(s->waiters));
 }
 
 void sentinel_twiddle(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
 	ASSERT(s != NULL);
-
-	if(s->remaining > 0 && s->t==NULL){
-		s->t = thread_current();
+	
+	enum intr_level old_level = intr_disable ();
+	
+	
+	if(s->remaining > 0){
+		list_push_back(&(s->waiters),&thread_current ()->elem);
 		thread_block();
 	 }
-	 intr_set_level(old_level);
+	
+	intr_set_level (old_level);	
 }
 
 bool sentinel_discharge(struct sentinel *s){
-	ASSERT(s!=NULL);
-	
-	enum intr_level old_level = intr_disable ();
 	(s->remaining)--;
 	
-	bool toReturn;
-	
 	/* unblock all waiters if resources exhausted */
-	if(s->remaining < 1 && s->t != NULL){
-		thread_unblock (s->t);
-		toReturn = true;
+	if(s->remaining < 1){
+		struct list_elem * e;
+		struct list_elem * f;
+		for (e = list_begin(&s->waiters), f=e->next; e != list_end(&s->waiters); e = f,f = e->next)
+		{
+			struct thread * t = list_entry (e, struct thread, elem);
+			thread_unblock (t);
+		}
+		return true;
 	}
-	else toReturn = false;
 	
-	intr_set_level(old_level);
-	return toReturn;
+	return false;
 }
 
 void sentinel_charge(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
 	(s->remaining)++;
-	intr_set_level(old_level);
 }

@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
+#include <list.h>
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
@@ -30,6 +31,8 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+static struct list sleepingTimers;
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -37,6 +40,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleepingTimers);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,11 +93,27 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  
+  //printf("sleeping: %d, %d\n",thread_current()->tid, ticks);
+  
+  
+  /* return immediately if we don't need to sleep */
+  if(ticks<1) return;
+  
+  /* add this to the list of waiting timers */
+  struct sleepingTimer s;
+  sentinel_init(&(s.s),ticks);
+  
+  /* its safe to pass a pointer to this thread's stack since it will
+   *   be sleeping and therefore won't pop the timer off while still
+   *   in use. */
+  intr_disable();
+  list_push_back (&sleepingTimers, (struct list_elem*)(&s.listElems));
+  intr_enable();
+  
+  /*will be woken up by timer_interrupt when the timer expires */
+  sentinel_twiddle(&(s.s));
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -170,8 +190,28 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  
+  enum intr_level old_level = intr_disable ();
   ticks++;
+  
+  /* decrement remaining amount on all sleeping timers and unblock if 
+   *  their timer is up. */
+  struct list_elem * e= list_begin(&sleepingTimers);
+  int loopSize = list_size(&sleepingTimers), i=0;
+  for (i = 0; i<loopSize; e = list_begin(&sleepingTimers),i++)
+     {
+	   list_remove(e);
+
+       bool unblocked = sentinel_discharge(&(list_entry (e, struct sleepingTimer, listElems)->s));
+       
+       if(!unblocked){
+		 list_push_back(&sleepingTimers,e);   
+	   }
+     }
+  
+  intr_set_level (old_level);
   thread_tick ();
+  
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
