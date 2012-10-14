@@ -3,9 +3,18 @@
 
 #include <round.h>
 #include <stdint.h>
+#include "threads/synch.h"
+#include <list.h>
 
 /* Number of timer interrupts per second. */
 #define TIMER_FREQ 100
+
+/* used to track all timers waiting to wake up */
+struct sleepingTimer
+ {
+    struct sentinel s;
+    struct list_elem listElems;   // List element to get to other timers 
+};
 
 void timer_init (void);
 void timer_calibrate (void);
@@ -18,6 +27,7 @@ void timer_sleep (int64_t ticks);
 void timer_msleep (int64_t milliseconds);
 void timer_usleep (int64_t microseconds);
 void timer_nsleep (int64_t nanoseconds);
+
 
 /* Busy waits. */
 void timer_mdelay (int64_t milliseconds);
