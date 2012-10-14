@@ -95,9 +95,6 @@ timer_sleep (int64_t ticks)
 {
   ASSERT (intr_get_level () == INTR_ON);
   
-  //printf("sleeping: %d, %d\n",thread_current()->tid, ticks);
-  
-  
   /* return immediately if we don't need to sleep */
   if(ticks<1) return;
   

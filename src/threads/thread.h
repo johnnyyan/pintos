@@ -128,6 +128,10 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+	/* Used for priority scheduling/donation */
+	int oldPriority;
+	struct lock * blockingLock;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
