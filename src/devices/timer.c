@@ -189,6 +189,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   
   enum intr_level old_level = intr_disable ();
+  int oldPriority = thread_current()->priority;
+  thread_current()->priority = PRI_MAX;
+  
   ticks++;
   
   /* decrement remaining amount on all sleeping timers and unblock if 
@@ -206,6 +209,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 	   }
      }
   
+  thread_current()->priority = oldPriority;
   intr_set_level (old_level);
   thread_tick ();
   
