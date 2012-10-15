@@ -266,9 +266,9 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  //  struct thread *cur = thread_current ();
-  //  cur->priority = cur->oldPriority;
-  // maybe consider set old priority to priority too? But it shouldn't matter
+  struct thread *cur = thread_current ();
+  cur->priority = cur->oldPriority;
+  
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

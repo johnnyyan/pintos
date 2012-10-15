@@ -394,19 +394,21 @@ thread_set_priority (int new_priority)
   ASSERT (!intr_context ());
   
 
-  cur->oldPriority = cur->priority;
+  cur->oldPriority = new_priority;
   cur->priority = new_priority;
   
-  struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
-  // if current thread has lower priority than the thread in front
-  // of the ready list, we need to switch to that one 
-  if (cur->priority < front->priority)
-  {
-    //add_to_readylist (&ready_list, &cur->elem);
-    list_insert_ordered (&ready_list, &cur->elem, less, NULL);
-    // same idea as thread_yield
-    cur->status = THREAD_READY;
-    schedule ();
+  if(!list_empty(&ready_list)){
+	  struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
+	  // if current thread has lower priority than the thread in front
+	  // of the ready list, we need to switch to that one 
+	  if (cur->priority < front->priority)
+	  {
+		//add_to_readylist (&ready_list, &cur->elem);
+		list_insert_ordered (&ready_list, &cur->elem, less, NULL);
+		// same idea as thread_yield
+		cur->status = THREAD_READY;
+		schedule ();
+	  }
   }
   
   /* else if "current thread" means running_thread ()
@@ -779,6 +781,6 @@ priorityDonate(struct thread *cur)
       curHolder->oldPriority = curHolder->priority;
       curHolder->priority = cur->priority;
       if (curHolder->blockingLock != NULL)
-	priorityDonate(curHolder);
+		priorityDonate(curHolder);
     }  
 }
