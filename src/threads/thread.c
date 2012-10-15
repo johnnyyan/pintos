@@ -654,8 +654,8 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-bool 
-less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+static bool 
+less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct thread *threadA = list_entry(a, struct thread, elem);
   struct thread *threadB = list_entry(b, struct thread, elem);
@@ -670,8 +670,8 @@ less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 }
 
 /* add a thread onto readylsit */
-void
-add_to_readylist(struct list *list, struct list_elem *thread_elem)
+static void
+add_to_readylist (struct list *list, struct list_elem *thread_elem)
 {
   // insert thread where thread_elem embeded in into the ready list
   list_insert_ordered (list, thread_elem, less, NULL);
