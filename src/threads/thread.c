@@ -73,8 +73,6 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void add_to_readylist(struct list *list, struct list_elem *thread_elem);
 
- 
-
 /* tom: the thread system is initialized in two steps.
  * The first is thread_init -- it sets up the ready list,
  * puts the current thread ("main") on it so that we can then
@@ -275,7 +273,7 @@ thread_unblock (struct thread *t)
  */
 //  list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
-  bool scheduleCalled = add_to_readylist (&ready_list, &t->elem); 
+  add_to_readylist (&ready_list, &t->elem);
 
   intr_set_level (old_level);
 }
@@ -351,13 +349,13 @@ thread_yield (void)
 
   old_level = intr_disable ();
   
-  bool scheduleCalled = false;
 /* tom: see comment above on the misnamed "list_push_back" */
   if (cur != idle_thread) 
     //    list_push_back (&ready_list, &cur->elem);
-    scheduleCalled = add_to_readylist (&ready_list, &cur->elem);
+    add_to_readylist (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
-  if(!scheduleCalled) schedule ();
+  schedule ();
+
   intr_set_level (old_level);
 }
 
@@ -655,7 +653,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-static bool 
+bool 
 less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct thread *threadA = list_entry(a, struct thread, elem);
@@ -682,15 +680,11 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
   ASSERT (is_thread (ins));
 
   // if the inserted thread has higher priority then 
-  // put the current thread onto reay list
+  // put the current thread onto reay list...
   if ( ins->priority > cur->priority )
     {
       list_insert_ordered (list, &cur->elem, less, NULL);
       cur->status = THREAD_READY;
       schedule();      
-      return true;
     }
-    
-  return false;
-    
 }
