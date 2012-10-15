@@ -55,6 +55,17 @@ bool sentinel_discharge(struct sentinel *);
 void sentinel_charge(struct sentinel *);
 void sentinel_twiddle(struct sentinel *);
 
+/* One semaphore in a list. */
+struct semaphore_elem 
+  {
+    struct list_elem elem;              /* List element. */
+    int priority;
+    struct semaphore semaphore;         /* This semaphore. */
+  };
+
+
+bool condVarLess (const struct list_elem *, const struct list_elem *, void * UNUSED);
+
 
 /* tom: DO NOT USE THIS ROUTINE UNDER ANY CIRCUMSTANCES!!!!!
  * It is not an "optimization" nor is it a "barrier" -- it is dangerous code. 

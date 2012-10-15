@@ -272,9 +272,11 @@ thread_unblock (struct thread *t)
  * at the end of of the list.  (There's a list_push_front.)  Calling them
  * "list_prepend" and "list_append" would have been much clearer.
  */
-//  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  //list_insert_ordered (&ready_list, &t->elem, less, NULL);
   t->status = THREAD_READY;
   add_to_readylist (&ready_list, &t->elem);
+  
 
   intr_set_level (old_level);
 }
@@ -353,7 +355,8 @@ thread_yield (void)
 /* tom: see comment above on the misnamed "list_push_back" */
   if (cur != idle_thread) 
     //    list_push_back (&ready_list, &cur->elem);
-    add_to_readylist (&ready_list, &cur->elem);
+    //add_to_readylist (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, less, NULL);
   cur->status = THREAD_READY;
   schedule ();
 
@@ -383,13 +386,14 @@ thread_set_priority (int new_priority)
 {
   /* if "current thread" means thread_current ()
    * then the following is enough */
-  
+  enum intr_level old_level;  
+  old_level = intr_disable ();
   struct thread *cur = thread_current ();
   // this should be guaranteed
   ASSERT (cur->status == THREAD_RUNNING);
-  enum intr_level old_level;  
+  
   ASSERT (!intr_context ());
-  old_level = intr_disable ();
+  
 
   cur->oldPriority = cur->priority;
   cur->priority = new_priority;
@@ -399,7 +403,8 @@ thread_set_priority (int new_priority)
   // of the ready list, we need to switch to that one 
   if (cur->priority < front->priority)
   {
-    add_to_readylist (&ready_list, &cur->elem);
+    //add_to_readylist (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, less, NULL);
     // same idea as thread_yield
     cur->status = THREAD_READY;
     schedule ();
@@ -745,6 +750,7 @@ less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 static void
 add_to_readylist (struct list *list, struct list_elem *thread_elem)
 {
+
   // insert thread where thread_elem embeded in into the ready list
   list_insert_ordered (list, thread_elem, less, NULL);
 
