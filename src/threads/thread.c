@@ -72,7 +72,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void add_to_readylist(struct list *list, struct list_elem *thread_elem);
-static bool less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
  
 
 /* tom: the thread system is initialized in two steps.

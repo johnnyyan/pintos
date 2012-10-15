@@ -172,4 +172,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+/* thread priority comparator */
+static bool less(const struct list_elem *, const struct list_elem *, void * UNUSED);
+
 #endif /* threads/thread.h */
