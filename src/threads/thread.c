@@ -274,10 +274,9 @@ thread_unblock (struct thread *t)
  * "list_prepend" and "list_append" would have been much clearer.
  */
 //  list_push_back (&ready_list, &t->elem);
-  add_to_readylist (&ready_list, &t->elem);
   t->status = THREAD_READY;
-  if (&t->elem == list_front (&ready_list))
-    schedule();
+  bool scheduleCalled = add_to_readylist (&ready_list, &t->elem); 
+
   intr_set_level (old_level);
 }
 
@@ -351,12 +350,14 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  
+  bool scheduleCalled = false;
 /* tom: see comment above on the misnamed "list_push_back" */
   if (cur != idle_thread) 
     //    list_push_back (&ready_list, &cur->elem);
-    add_to_readylist (&ready_list, &cur->elem);
+    scheduleCalled = add_to_readylist (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
-  schedule ();
+  if(!scheduleCalled) schedule ();
   intr_set_level (old_level);
 }
 
@@ -685,6 +686,11 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
   if ( ins->priority > cur->priority )
     {
       list_insert_ordered (list, &cur->elem, less, NULL);
-      /* need to schedule here or outside? */
+      cur->status = THREAD_READY;
+      schedule();      
+      return true;
     }
+    
+  return false;
+    
 }
