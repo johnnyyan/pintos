@@ -272,10 +272,11 @@ thread_unblock (struct thread *t)
  * at the end of of the list.  (There's a list_push_front.)  Calling them
  * "list_prepend" and "list_append" would have been much clearer.
  */
-//  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  //list_insert_ordered (&ready_list, &t->elem, less, NULL);
   t->status = THREAD_READY;
-  //add_to_readylist (&ready_list, &t->elem);
-  list_insert_ordered (&ready_list, &t->elem, less, NULL);
+  add_to_readylist (&ready_list, &t->elem);
+  
 
   intr_set_level (old_level);
 }
@@ -744,10 +745,7 @@ less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
   ASSERT (is_thread (threadA));
   ASSERT (is_thread (threadB));
   
-  if (threadA->priority > threadB->priority)
-    return true;
-  else
-    return false;
+  return threadA->priority > threadB->priority;
 }
 
 /* add a thread onto readylsit */
