@@ -213,9 +213,17 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  struct thread *cur = thread_current ();
 
+  if (lock->semaphore->value == 0)
+    {
+      cur->blockingLock = lock;
+      priorityDonate (cur);
+    }
+  
   sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+  lock->holder = cur;
+  cur->blockingLock = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -234,7 +242,12 @@ lock_try_acquire (struct lock *lock)
 
   success = sema_try_down (&lock->semaphore);
   if (success)
-    lock->holder = thread_current ();
+    {
+      struct thread *cur = thread_current ();
+      lock->holder = cur;
+      if (cur->blockingLock == lock)
+	cur->blockingLock = NULL;
+    }
   return success;
 }
 

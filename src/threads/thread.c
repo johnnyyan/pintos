@@ -131,7 +131,7 @@ thread_start (void)
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
-
+   
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -405,8 +405,6 @@ thread_set_priority (int new_priority)
     schedule ();
   }
   
-
-
   /* else if "current thread" means running_thread ()
    * then we need to be much more careful 
   struct thread *cur = running_thread ();
@@ -740,10 +738,7 @@ less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
   ASSERT (is_thread (threadA));
   ASSERT (is_thread (threadB));
   
-  if (threadA->priority < threadB->priority)
-    return true;
-  else
-    return false;
+  return threadA->priority > threadB->priority;
 }
 
 /* add a thread onto readylsit */
@@ -770,7 +765,6 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
     }
 }
 
-
 static void
 priorityDonate(struct thread *cur)
 {
@@ -781,6 +775,5 @@ priorityDonate(struct thread *cur)
       curHolder->priority = cur->priority;
       if (curHolder->blockingLock != NULL)
 	priorityDonate(curHolder);
-    }
-  
+    }  
 }
