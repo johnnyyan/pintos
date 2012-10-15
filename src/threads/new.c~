@@ -1,0 +1,9 @@
+void
+add_to_list(struct list *list, struct list_elem *elem)
+{
+  struct thread insertThread = list_entry(elem, struct thread, elem);
+  for ( e = list_begin (list); e != list_end (list); e = list_next (e))
+    {
+      
+    }
+}

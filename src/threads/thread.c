@@ -71,6 +71,9 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static void add_to_readylist(struct list *list, struct list_elem *thread_elem);
+static bool less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+ 
 
 /* tom: the thread system is initialized in two steps.
  * The first is thread_init -- it sets up the ready list,
@@ -270,8 +273,11 @@ thread_unblock (struct thread *t)
  * at the end of of the list.  (There's a list_push_front.)  Calling them
  * "list_prepend" and "list_append" would have been much clearer.
  */
-  list_push_back (&ready_list, &t->elem);
+//  list_push_back (&ready_list, &t->elem);
+  add_to_readylist (&ready_list, &t->elem);
   t->status = THREAD_READY;
+  if (&t->elem == list_front (&ready_list))
+    schedule();
   intr_set_level (old_level);
 }
 
@@ -347,7 +353,8 @@ thread_yield (void)
   old_level = intr_disable ();
 /* tom: see comment above on the misnamed "list_push_back" */
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //    list_push_back (&ready_list, &cur->elem);
+    add_to_readylist (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -375,6 +382,10 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+/* if there is any thread in the ready list has higher priority
+ * it should be scheculed in. */
+
+  /* update priority queue */ 
 }
 
 /* Returns the current thread's priority. */
@@ -642,3 +653,38 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+bool 
+less(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread *threadA = list_entry(a, struct thread, elem);
+  struct thread *threadB = list_entry(b, struct thread, elem);
+
+  ASSERT (is_thread (threadA));
+  ASSERT (is_thread (threadB));
+  
+  if (threadA->priority < threadB->priority)
+    return true;
+  else
+    return false;
+}
+
+/* add a thread onto readylsit */
+void
+add_to_readylist(struct list *list, struct list_elem *thread_elem)
+{
+  // insert thread where thread_elem embeded in into the ready list
+  list_insert_ordered (list, thread_elem, less, NULL);
+
+  struct thread *cur = thread_current ();
+  struct thread *ins = list_entry(thread_elem, struct thread, elem);
+  ASSERT (is_thread (ins));
+
+  // if the inserted thread has higher priority then 
+  // put the current thread onto reay list
+  if ( ins->priority > cur->priority )
+    {
+      list_insert_ordered (list, &cur->elem, less, NULL);
+      /* need to schedule here or outside? */
+    }
+}
