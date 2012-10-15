@@ -72,6 +72,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void add_to_readylist(struct list *list, struct list_elem *thread_elem);
+static void priorityDonate(struct thread *cur);
 
 /* tom: the thread system is initialized in two steps.
  * The first is thread_init -- it sets up the ready list,
@@ -380,11 +381,88 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  /* if "current thread" means thread_current ()
+   * then the following is enough */
+  
+  struct thread *cur = thread_current ();
+  // this should be guaranteed
+  ASSERT (cur->status == THREAD_RUNNING);
+  enum intr_level old_level;  
+  ASSERT (!intr_context ());
+  old_level = intr_disable ();
+
+  cur->oldPriority = cur->priority;
+  cur->priority = new_priority;
+  
+  struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
+  // if current thread has lower priority than the thread in front
+  // of the ready list, we need to switch to that one 
+  if (cur->priority < front->priority)
+  {
+    add_to_readylist (&ready_list, &cur->elem);
+    // same idea as thread_yield
+    cur->status = THREAD_READY;
+    schedule ();
+  }
+  
+
+
+  /* else if "current thread" means running_thread ()
+   * then we need to be much more careful 
+  struct thread *cur = running_thread ();
+  //  careful about these 3 lines
+  enum intr_level old_level;  
+  //  ASSERT (!intr_context ());
+  old_level = intr_disable ();
+
+  cur->oldPriority = cur->priority;
+  cur->priority = new_priority;*/
+
 /* if there is any thread in the ready list has higher priority
  * it should be scheculed in. */
+/*
+  if (cur->status == THREAD_RUNNING)
+    {
+      struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
+      // if current thread has lower priority than the thread in front
+      // of the ready list, we need to switch to that one 
+      if (cur->priority < front->priority)
+	{
+	  add_to_readylist (&ready_list, &cur->elem);
+	  // same idea as thread_yield
+	  cur->status = THREAD_READY;
+	  schedule ();
+	  }
+    }
+  else if (cur->status == THREAD_READY)
+    {
+      // remove the current thread from the ready list.
+      // ignore the return of list_remove, since we aren't interested
+      // in what's following the current thread on the ready list
+      list_remove (&cur->elem);
+      // add the current thread back to the ready list
+      // schedule a new thread if necessary
+      add_to_readylist (&ready_list, &cur->elem);
+    }
+  else if (cur->status == THREAD_BLOCKED)
+    {
+      if(cur->blockingLock != NULL)
+	{
+	  // how to verify it's on the waiters list? 
+	  list_remove (&cur->elem);
+	  struct semaphore sema = cur->blockingLock->semaphore;
+	  list_insert_ordered (&sema.waiters, &cur->elem, less, NULL);      
 
-  /* update priority queue */ 
+	  priorityDonate(cur);
+	  // then?
+	}
+    }
+  else 
+    {
+      // do nothing since it's dying
+    }
+  */
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -678,13 +756,31 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
   struct thread *cur = thread_current ();
   struct thread *ins = list_entry(thread_elem, struct thread, elem);
   ASSERT (is_thread (ins));
-
+  
   // if the inserted thread has higher priority then 
-  // put the current thread onto reay list...
+  // put the current thread onto reay list, update its
+  // status to READY and schedule next the next thread
+  /* this part would never be reached if we insert the 
+   * current running thread */
   if ( ins->priority > cur->priority )
     {
       list_insert_ordered (list, &cur->elem, less, NULL);
       cur->status = THREAD_READY;
       schedule();      
     }
+}
+
+
+static void
+priorityDonate(struct thread *cur)
+{
+  struct thread *curHolder = cur->blockingLock->holder;
+  if (curHolder->priority < cur->priority)
+    {
+      curHolder->oldPriority = curHolder->priority;
+      curHolder->priority = cur->priority;
+      if (curHolder->blockingLock != NULL)
+	priorityDonate(curHolder);
+    }
+  
 }
