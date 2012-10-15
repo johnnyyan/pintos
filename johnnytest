@@ -1,9 +1,0 @@
-Johnny's test for pushing to github
-Fri Oct  5 18:30:36 PDT 2012
-
-git remote -v >> johnnytest
-origin	https://github.com/johnnyyan/pintos.git (fetch)
-origin	https://github.com/johnnyyan/pintos.git (push)
-
-git branch --list >> johnnytest
-* master
