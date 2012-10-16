@@ -70,7 +70,6 @@ sema_down (struct semaphore *sema)
   while (sema->value == 0) 
     {
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, less, NULL);
-      //      list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -196,6 +195,7 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
+  //list_init(&lock->prioritiesAvailable);
   sema_init (&lock->semaphore, 1);
 }
 
@@ -213,18 +213,26 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+  
+  enum intr_level old_level = intr_disable ();
 
   struct thread *cur = thread_current ();
 
+//is the lock acquire is going to fail, then lets donate our priority
   if (lock->semaphore.value == 0)
     {
       cur->blockingLock = lock;
       priorityDonate (cur);
     }
-  
+    
   sema_down (&lock->semaphore);
+  
+  
+  
   lock->holder = cur;
   cur->blockingLock = NULL;
+  list_push_back(&cur->locksHeld,&lock->elem);
+  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -246,11 +254,9 @@ lock_try_acquire (struct lock *lock)
     {
       struct thread *cur = thread_current ();
       lock->holder = cur;
-      // we are trying to acquire the lock that means
-      // we are not on the waiting list. but it does't
-      // hurt to check this condition. delete later
-      if (cur->blockingLock == lock)
-	cur->blockingLock = NULL;
+      cur->blockingLock = NULL;
+      //add this to the list of locks this thread holds
+      list_push_back(&cur->locksHeld,&lock->elem);
     }
   return success;
 }
@@ -265,12 +271,22 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+  
+  enum intr_level old_level = intr_disable ();
 
   struct thread *cur = thread_current ();
-  cur->priority = cur->oldPriority;
-  
   lock->holder = NULL;
+  
+  //remove the lock from the list of locks held by this thread
+  list_remove(&lock->elem);
+  
+  //update the priority of this thread in case it was using one donated
+  //  to it by a waiter of this lock.
+  cur->priority = max_held_priority(cur);
+  
+  
   sema_up (&lock->semaphore);
+  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -341,7 +357,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  //list_push_back (&cond->waiters, &waiter.elem);
+  
+  //insert this waiter into the waiters list in an order that preserves priority
   waiter.priority = thread_current()->priority;
   list_insert_ordered (&cond->waiters, &waiter.elem, condVarLess, NULL);
   lock_release (lock);
@@ -385,13 +402,17 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
-
+//Initialize the sentinel.
 void sentinel_init(struct sentinel *s, int64_t initialRemaining){
 	ASSERT(s != NULL);
 	s->remaining = initialRemaining;
 	s->t = NULL;
 }
 
+//registers one's self as the waiting thread.  We coded a version of this
+//  with a waiter's list, but in order to keep it no more complicated than
+//  needed, we went with only 1 waiting thread.
+//This thread waits/blocks until the resources in this sentinel are exhauseted.
 void sentinel_twiddle(struct sentinel *s){
 	enum intr_level old_level = intr_disable ();
 	ASSERT(s != NULL);
@@ -403,6 +424,8 @@ void sentinel_twiddle(struct sentinel *s){
 	 intr_set_level(old_level);
 }
 
+//lower the amount of resources available and wake up the waiter if
+//  we have exhausted all of them.
 bool sentinel_discharge(struct sentinel *s){
 	ASSERT(s!=NULL);
 	
@@ -422,12 +445,15 @@ bool sentinel_discharge(struct sentinel *s){
 	return toReturn;
 }
 
+//charge the sentinel.  That is - raise the count of resources available.
 void sentinel_charge(struct sentinel *s){
 	enum intr_level old_level = intr_disable ();
 	(s->remaining)++;
 	intr_set_level(old_level);
 }
 
+//comparator function used for sorting waiters in a condition variable list
+//  sorts by element priority.
 bool 
 condVarLess (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
@@ -439,3 +465,4 @@ condVarLess (const struct list_elem *a, const struct list_elem *b, void *aux UNU
 	
 	return s1->priority > s2->priority;
 }
+

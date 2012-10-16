@@ -131,6 +131,8 @@ struct thread
     /* Used for priority scheduling/donation */
     int oldPriority;
     struct lock *blockingLock;
+    struct list locksHeld;
+    struct priority_elem *pe;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -176,5 +178,10 @@ int thread_get_load_avg (void);
 bool less(const struct list_elem *, const struct list_elem *, void * UNUSED);
 /* priority donation */
 void priorityDonate(struct thread *cur);
-
+int max_held_priority(struct thread *cur);
+bool thread_valid_func(const struct list_elem *e, void *aux);
+struct priority_elem{
+	int priority;
+	struct list_elem elem;
+};
 #endif /* threads/thread.h */

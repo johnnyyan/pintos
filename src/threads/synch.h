@@ -24,6 +24,7 @@ struct lock
   {
     struct thread *holder;      /* Thread holding lock (for debugging). */
     struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct list_elem elem;
   };
 
 void lock_init (struct lock *);
@@ -43,7 +44,13 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
-
+/* A sentinel is a synchronization variable which acts to some degree
+ * like the opposite of a semaphore.  It tracks the quantity of some
+ * resource available and wakes a waiting thread when the resources
+ * are exhausted.  This is used for timer ticks: the 'resource' is the
+ * amount of time left until the thread is awoken.
+ * */
+ 
 /* Resource sentinel - wake a thread when all resources exhausted */
 struct sentinel{
 	int64_t remaining;
@@ -62,6 +69,7 @@ struct semaphore_elem
     int priority;
     struct semaphore semaphore;         /* This semaphore. */
   };
+
 
 
 bool condVarLess (const struct list_elem *, const struct list_elem *, void * UNUSED);

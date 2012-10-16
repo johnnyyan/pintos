@@ -266,13 +266,7 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
-/* tom: you might think "list_push_back" pushes the thread
- * back onto the ready queue, but you would be wrong.  It puts the thread
- * at the end of of the list.  (There's a list_push_front.)  Calling them
- * "list_prepend" and "list_append" would have been much clearer.
- */
-  //list_push_back (&ready_list, &t->elem);
-  //list_insert_ordered (&ready_list, &t->elem, less, NULL);
+
   t->status = THREAD_READY;
   add_to_readylist (&ready_list, &t->elem);
   
@@ -351,10 +345,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   
-/* tom: see comment above on the misnamed "list_push_back" */
   if (cur != idle_thread) 
-    //    list_push_back (&ready_list, &cur->elem);
-    //add_to_readylist (&ready_list, &cur->elem);
     list_insert_ordered (&ready_list, &cur->elem, less, NULL);
   cur->status = THREAD_READY;
   schedule ();
@@ -383,27 +374,28 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  /* if "current thread" means thread_current ()
-   * then the following is enough */
   enum intr_level old_level;  
   old_level = intr_disable ();
   struct thread *cur = thread_current ();
-  // this should be guaranteed
+
   ASSERT (cur->status == THREAD_RUNNING);
   
   ASSERT (!intr_context ());
   
-
+  //update the 'oldPriority' (aka the undonated priority) to the new priority.
+  //then check if this is the max held priority available to this thread
   cur->oldPriority = new_priority;
-  cur->priority = new_priority;
+  cur->priority = max_held_priority(cur);
   
+  //if the ready list is not empty, then check if this currently running
+  //  thread is lower priority.  If it is, then it should not run anymore
+  //  at this point and should switch to the higher priority thread.
   if(!list_empty(&ready_list)){
 	  struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
 	  // if current thread has lower priority than the thread in front
 	  // of the ready list, we need to switch to that one 
 	  if (cur->priority < front->priority)
 	  {
-		//add_to_readylist (&ready_list, &cur->elem);
 		list_insert_ordered (&ready_list, &cur->elem, less, NULL);
 		// same idea as thread_yield
 		cur->status = THREAD_READY;
@@ -411,61 +403,6 @@ thread_set_priority (int new_priority)
 	  }
   }
   
-  /* else if "current thread" means running_thread ()
-   * then we need to be much more careful 
-  struct thread *cur = running_thread ();
-  //  careful about these 3 lines
-  enum intr_level old_level;  
-  //  ASSERT (!intr_context ());
-  old_level = intr_disable ();
-
-  cur->oldPriority = cur->priority;
-  cur->priority = new_priority;*/
-
-/* if there is any thread in the ready list has higher priority
- * it should be scheculed in. */
-/*
-  if (cur->status == THREAD_RUNNING)
-    {
-      struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
-      // if current thread has lower priority than the thread in front
-      // of the ready list, we need to switch to that one 
-      if (cur->priority < front->priority)
-	{
-	  add_to_readylist (&ready_list, &cur->elem);
-	  // same idea as thread_yield
-	  cur->status = THREAD_READY;
-	  schedule ();
-	  }
-    }
-  else if (cur->status == THREAD_READY)
-    {
-      // remove the current thread from the ready list.
-      // ignore the return of list_remove, since we aren't interested
-      // in what's following the current thread on the ready list
-      list_remove (&cur->elem);
-      // add the current thread back to the ready list
-      // schedule a new thread if necessary
-      add_to_readylist (&ready_list, &cur->elem);
-    }
-  else if (cur->status == THREAD_BLOCKED)
-    {
-      if(cur->blockingLock != NULL)
-	{
-	  // how to verify it's on the waiters list? 
-	  list_remove (&cur->elem);
-	  struct semaphore sema = cur->blockingLock->semaphore;
-	  list_insert_ordered (&sema.waiters, &cur->elem, less, NULL);      
-
-	  priorityDonate(cur);
-	  // then?
-	}
-    }
-  else 
-    {
-      // do nothing since it's dying
-    }
-  */
   intr_set_level (old_level);
 }
 
@@ -615,6 +552,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->oldPriority = priority;
+  t->blockingLock = NULL;
+  list_init(&(t->locksHeld));
+  t->pe = NULL;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -773,15 +713,48 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
     }
 }
 
+//recursively donates priorities to all locks this thread is waiting on
+//  also causes a blocking thread to bubble up or down in the list where
+//  its waiting.
+//  Note that this can cause superfluous bubbling in the sleepers list since
+//    we do not differentiate between sleeping and blocking.
 void
 priorityDonate(struct thread *cur)
 {
   struct thread *curHolder = cur->blockingLock->holder;
-  if (curHolder->priority < cur->priority)
-    {
-      curHolder->oldPriority = curHolder->priority;
-      curHolder->priority = cur->priority;
-      if (curHolder->blockingLock != NULL)
+  if (curHolder->priority < cur->priority){
+	   curHolder->priority = cur->priority;
+	   
+	   if (curHolder->status == THREAD_BLOCKED) bubble_up(&curHolder->elem, less, thread_valid_func, NULL, NULL);
+   }
+  
+  if (curHolder->blockingLock != NULL)
 		priorityDonate(curHolder);
-    }  
+}
+
+//gives us the highest priority available to this thread:
+// checks the 'oldPriority' field which holds it undonated priority,
+// then checks the priority of all waiters on all locks this thread holds
+int max_held_priority(struct thread *cur){
+	int max = -1;
+	if(max < cur->oldPriority) max = cur->oldPriority;
+	
+	struct list_elem * e;
+	for (e = list_begin (&cur->locksHeld); e != list_end (&cur->locksHeld);
+           e = list_next (e)){
+			   struct lock * l = list_entry(e,struct lock, elem);
+			   struct list_elem * f;
+			   for (f = list_begin (&l->semaphore.waiters); f != list_end (&l->semaphore.waiters);
+					f = list_next (f)){
+						struct thread * t = list_entry(f,struct thread, elem);
+						if(max < t->priority) max = t->priority;
+			   }
+	   }
+	
+	return max;
+}
+
+bool thread_valid_func(const struct list_elem *e, void *aux UNUSED){
+	ASSERT(e!=NULL);
+	return is_thread(list_entry(e,struct thread,elem));
 }
