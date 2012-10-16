@@ -271,10 +271,26 @@ thread_unblock (struct thread *t)
  * at the end of of the list.  (There's a list_push_front.)  Calling them
  * "list_prepend" and "list_append" would have been much clearer.
  */
-  //list_push_back (&ready_list, &t->elem);
-  //list_insert_ordered (&ready_list, &t->elem, less, NULL);
+  list_insert_ordered (&ready_list, &t->elem, less, NULL);
   t->status = THREAD_READY;
-  add_to_readylist (&ready_list, &t->elem);
+  
+  if (!list_empty (&ready_list))
+    {
+      struct thread *front = list_entry (list_front (&ready_list), struct thread, elem);
+      struct thread *cur = thread_current ();
+      // if current thread has lower priority than the thread in front
+      // of the ready list, we need to switch to that one 
+      if ( cur->priority < front->priority)
+	{
+	  //add_to_readylist (&ready_list, &cur->elem);
+	  list_insert_ordered (&ready_list, &cur->elem, less, NULL);
+	  // same idea as thread_yield
+	  cur->status = THREAD_READY;
+	  schedule ();
+	}
+    }
+
+  //  add_to_readylist (&ready_list, &t->elem);
 
   intr_set_level (old_level);
 }

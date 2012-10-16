@@ -45,10 +45,11 @@ void cond_broadcast (struct condition *, struct lock *);
 
 
 /* Resource sentinel - wake a thread when all resources exhausted */
-struct sentinel{
-	int64_t remaining;
-	struct thread * t;
-};
+struct sentinel
+  {
+    int64_t remaining;
+    struct thread * t;
+  };
 
 void sentinel_init(struct sentinel *, int64_t);
 bool sentinel_discharge(struct sentinel *);

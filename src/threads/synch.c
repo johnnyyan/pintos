@@ -386,56 +386,68 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 }
 
 
-void sentinel_init(struct sentinel *s, int64_t initialRemaining){
-	ASSERT(s != NULL);
-	s->remaining = initialRemaining;
-	s->t = NULL;
+void 
+sentinel_init (struct sentinel *s, int64_t initialRemaining)
+{
+  ASSERT (s != NULL);
+  s->remaining = initialRemaining;
+  s->t = NULL;
 }
 
-void sentinel_twiddle(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
-	ASSERT(s != NULL);
-
-	if(s->remaining > 0 && s->t==NULL){
-		s->t = thread_current();
-		thread_block();
-	 }
-	 intr_set_level(old_level);
+void 
+sentinel_twiddle (struct sentinel *s)
+{
+  enum intr_level old_level = intr_disable ();
+  ASSERT(s != NULL);
+  
+  if (s->remaining > 0 && s->t==NULL)
+    {
+      s->t = thread_current();
+      thread_block();
+    }
+  intr_set_level (old_level);
 }
 
-bool sentinel_discharge(struct sentinel *s){
-	ASSERT(s!=NULL);
+bool 
+sentinel_discharge (struct sentinel *s)
+{
+  ASSERT(s!=NULL);
 	
-	enum intr_level old_level = intr_disable ();
-	(s->remaining)--;
+  enum intr_level old_level = intr_disable ();
+  (s->remaining)--;
 	
-	bool toReturn;
+  bool toReturn;
 	
-	/* unblock all waiters if resources exhausted */
-	if(s->remaining < 1 && s->t != NULL){
-		thread_unblock (s->t);
-		toReturn = true;
-	}
-	else toReturn = false;
+  /* unblock all waiters if resources exhausted */
+  if(s->remaining < 1 && s->t != NULL)
+    {
+      thread_unblock (s->t);
+      toReturn = true;
+    }
+  else 
+    toReturn = false;
 	
-	intr_set_level(old_level);
-	return toReturn;
+  intr_set_level (old_level);
+  
+  return toReturn;
 }
 
-void sentinel_charge(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
-	(s->remaining)++;
-	intr_set_level(old_level);
+void 
+sentinel_charge (struct sentinel *s)
+{
+  enum intr_level old_level = intr_disable ();
+  (s->remaining)++;
+  intr_set_level (old_level);
 }
 
 bool 
 condVarLess (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	ASSERT (a!=NULL);
-	ASSERT (b!=NULL);
+  ASSERT (a!=NULL);
+  ASSERT (b!=NULL);
   
-	struct semaphore_elem * s1 = list_entry (a, struct semaphore_elem, elem);
-	struct semaphore_elem * s2 = list_entry (b, struct semaphore_elem, elem);
+  struct semaphore_elem * s1 = list_entry (a, struct semaphore_elem, elem);
+  struct semaphore_elem * s2 = list_entry (b, struct semaphore_elem, elem);
 	
-	return s1->priority > s2->priority;
+  return s1->priority > s2->priority;
 }
