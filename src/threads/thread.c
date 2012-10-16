@@ -275,7 +275,6 @@ thread_unblock (struct thread *t)
   //list_insert_ordered (&ready_list, &t->elem, less, NULL);
   t->status = THREAD_READY;
   add_to_readylist (&ready_list, &t->elem);
-  
 
   intr_set_level (old_level);
 }
