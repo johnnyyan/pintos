@@ -1,4 +1,4 @@
-			+-------------------+
+ 			+-------------------+
 			|      CSE 451      |
 			| PROJECT 1: Thread |
 			|  DESIGN DOCUMENT  |
@@ -10,7 +10,7 @@ Matthew Bryan, Jijiang Yan
 >> If you have any preliminary comments on your submission, notes for
 >> the TAs, or extra credit, please give them here.
 
-(This is a sample design document.)
+None.
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation,
@@ -18,33 +18,219 @@ Matthew Bryan, Jijiang Yan
 
 None.
 
-					JOIN
-					====
+			CONTEXT SWITCHING
+			=================
+
+---- STACK RESULTS ----
+When timer interrupts is turned off, the backtrace results are shown below.
+When "first yielder" finishes, "second yielder" will delete its stack. Because
+when "first yielder" finishes by calling thread_exit() which eventually switches
+thread from "first yielder" to "second yielder" which is now the running thread,
+under which thread_schedule_tail cleans up "first yielder" stack.
+
+Right before call to switch_thread () (called by main):
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#2  0xc002c4bf in test_P1_threadYield ()
+    at ../../tests/threads/P1_threadYield.c:16
+#3  0xc002a829 in run_test (name=name@entry=0xc0007d42 "P1_threadYield")
+    at ../../tests/threads/tests.c:48
+#4  0xc00201b3 in run_task (argv=0xc00345e0) at ../../threads/init.c:326
+#5  0xc002072e in run_actions (argv=0xc00345e0) at ../../threads/init.c:381
+#6  main () at ../../threads/init.c:166
+
+Right after returning (now in switch_entry, on first_yielder's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+Right before call to switch_thread () (called by first_yielder):
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#2  0xc002c45c in yielder () at ../../tests/threads/P1_threadYield.c:22
+#3  0xc00210f8 in kernel_thread (function=0xc002c454 <yielder>, aux=0x0)
+    at ../../threads/thread.c:478
+#4  0x00000000 in ?? ()
+
+Right after return (now in switch_entry, on second_yielder's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+Right before call to switch_thread () (called by second_yielder):
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#2  0xc002c45c in yielder () at ../../tests/threads/P1_threadYield.c:22
+#3  0xc00210f8 in kernel_thread (function=0xc002c454 <yielder>, aux=0x0)
+    at ../../threads/thread.c:478
+#4  0x00000000 in ?? ()
+
+Right after return (now in switch_entry, on main's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+Right before call to switch_thread () (called by main):
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#2  0xc00217fa in intr_handler (frame=0xc000edc8)
+    at ../../threads/interrupt.c:400
+#3  0xc00218f3 in intr_entry () at ../../threads/intr-stubs.S:37
+#4  0xc000edc8 in ?? ()
+#5  0xc00215ea in intr_enable () at ../../threads/interrupt.c:100
+#6  0xc002f4d9 in ?? ()
+#7  0xc002d627 in ?? ()
+
+Right after returning (now in switch_entry, on first_yielder's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+Now in thread_exit / first_yielder, about to call switch_thread:
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002108e in thread_exit () at ../../threads/thread.c:333
+#2  0xc00210fd in kernel_thread (function=0xc002c454 <yielder>, aux=0x0)
+    at ../../threads/thread.c:479
+#3  0x00000000 in ?? ()
+
+Right after returning (now in switch_entry, on second_yielder's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+At this point first_yielder's stack is deleted in the call to thread_schedule_tail
+which is done by second_yielder:
+#0  thread_schedule_tail (prev=0xc0104000) at ../../threads/thread.c:577
+#1  0xc0020fa1 in schedule () at ../../threads/thread.c:626
+#2  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#3  0xc002c45c in yielder () at ../../tests/threads/P1_threadYield.c:22
+#4  0xc00210f8 in kernel_thread (function=0xc002c454 <yielder>, aux=0x0)
+    at ../../threads/thread.c:478
+#5  0x00000000 in ?? ()
+
+Now second_yielder calls switch_thread:
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002108e in thread_exit () at ../../threads/thread.c:333
+#2  0xc00210fd in kernel_thread (function=0xc002c454 <yielder>, aux=0x0)
+    at ../../threads/thread.c:479
+#3  0x00000000 in ?? ()
+
+Right after returning (now in switch_entry, on main's stack):
+#0  switch_entry () at ../../threads/switch.S:55
+
+Now main calls switch_thread:
+#0  schedule () at ../../threads/thread.c:625
+#1  0xc002108e in thread_exit () at ../../threads/thread.c:333
+#2  0xc0020748 in main () at ../../threads/init.c:170
+
+We are switching to idle thread, whose tail call cleans up main:
+#0  thread_schedule_tail (prev=0xc000e000) at ../../threads/thread.c:577
+#1  0xc0020fa1 in schedule () at ../../threads/thread.c:626
+#2  0xc002117b in thread_block () at ../../threads/thread.c:247
+#3  0xc00211a2 in idle (idle_started_=0xc000ef7c)
+    at ../../threads/thread.c:446
+#4  0xc00210f8 in kernel_thread (function=0xc002117f <idle>, aux=0xc000ef7c)
+    at ../../threads/thread.c:478
+#5  0x00000000 in ?? ()
+
+----------------------------------------------
+
+When we allow a timer interrupt to step in and cause a switching of threads, 
+we get this stack trace:
+#0  switch_threads () at ../../threads/switch.S:41
+#1  0xc0020f99 in schedule () at ../../threads/thread.c:624
+#2  0xc002101c in thread_yield () at ../../threads/thread.c:352
+#3  0xc00217fa in intr_handler (frame=0xc0104f7c)
+    at ../../threads/interrupt.c:400
+#4  0xc00218f3 in intr_entry () at ../../threads/intr-stubs.S:37
+#5  0xc0104f7c in ?? ()
+#6  0x00000001 in ?? ()
+
+
+			ALARM CLOCK
+			===========
+
+---- DATA STRUCTURES ----
+
+The struct sleepingTimer is a clock alarm for a thread who is 
+sleeping. The inner struct sentinel used to record the remaining 
+time for a particular thread in sleeping. When the remaining time
+expires, the thread will be awoken up. The list sleepingTimers in 
+timer.c is used to recorded the list of sleeping threads which are
+updated when timer interrupt occurred. 
+
+(In timer.h)
+/* Used to track all timers waiting to wake up */
+struct sleepingTimer
+  {
+    struct sentinel s;
+    struct list_elem listElems;   // List element to get to other timers 
+  };
+
+(In synch.h)
+/* Resource sentinel - wake a thread when all resources exhausted */
+struct sentinel
+  {
+    int64_t remaining;
+    struct thread * t;
+  };
+
+(Added a struct list in timer.c)
+/* A list of sleeping threads */
+static struct list sleepingTimers;
+
+---- ALGORITHMS ----
+
+thread_sleep() initializes an alarm clock "sleepingTimer" with its initial
+remaining time and adds onto the list of waiting timers. And then it calls
+sentinel_twiddle() to give that timer to a thread, which waits until the
+remaining time is up to wake up again.  
+
+
+---- SYNCHRONIZATION ----
+ 
+???
+
+---- RATIONALE ----
+
+??? 
+
+
+			PRIORITY SCHECULING
+			===================
 
 ---- DATA STRUCTURES ----
 >> Copy here the declaration of each new or changed ‘struct’ or ‘struct’
 >> member, global or static variable, ‘typedef’, or enumeration.
 >> Identify the purpose of each in 25 words or less.
 
-A "latch" is a new synchronization primitive. Acquires block
-until the first release. Afterward, all ongoing and future
-acquires pass immediately.
+The struct sleepingTimer is a clock alarm for a thread who is 
+sleeping. The inner struct sentinel used to record the remaining 
+time for a particular thread in sleeping. When the remaining time
+expires, the thread will be awoken up. The list sleepingTimers in 
+timer.c is used to recorded the list of sleeping threads which are
+updated when timer interrupt occurred. 
 
-/* Latch. */
-struct latch
-{
-	bool released;			/* Released yet? */
-	struct lock monitor_lock;	/* Monitor lock. */
-	struct condition rel_cond;	/* Signaled when released. */
-};
+(Added in thread.h)
+/* members added in struct thread for priority scheduling/donation */
+int oldPriority;
+struct lock *blockingLock;
+struct list locksHeld;
+struct priority_elem *pe;
 
-Added to struct thread:
+struct priority_elem
+  {
+    int priority;
+    struct list_elem elem;
+  };
 
-/* Members for implementing thread_join(). */
-struct latch ready_to_die;	/* Release when thread about to die. */
-struct semaphore can_die;	/* Up when thread allowed to die. */
-struct list children;		/* List of child threads. */
-list_elem children_elem;	/* Element of ‘children’ list. */
+
+(Added member struct list_elem in struct lock in synch.h)
+struct lock 
+  {
+    struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct list_elem elem;
+  };
+
+/* One semaphore in a list. */
+struct semaphore_elem 
+  {
+    struct list_elem elem;              /* List element. */
+    int priority;
+    struct semaphore semaphore;         /* This semaphore. */
+  };
+
 
 ---- ALGORITHMS ----
 >> Briefly describe your implementation of thread_join() and how it
