@@ -743,12 +743,8 @@ int max_held_priority(struct thread *cur){
 	for (e = list_begin (&cur->locksHeld); e != list_end (&cur->locksHeld);
            e = list_next (e)){
 			   struct lock * l = list_entry(e,struct lock, elem);
-			   struct list_elem * f;
-			   for (f = list_begin (&l->semaphore.waiters); f != list_end (&l->semaphore.waiters);
-					f = list_next (f)){
-						struct thread * t = list_entry(f,struct thread, elem);
-						if(max < t->priority) max = t->priority;
-			   }
+			   if(!list_empty(&l->semaphore.waiters) && max < list_entry(l->semaphore.waiters.head.next,struct thread, elem)->priority) 
+					max = list_entry(l->semaphore.waiters.head.next,struct thread, elem)->priority;
 	   }
 	
 	return max;
