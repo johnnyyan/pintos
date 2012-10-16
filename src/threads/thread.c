@@ -72,7 +72,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void add_to_readylist(struct list *list, struct list_elem *thread_elem);
-static void priorityDonate(struct thread *cur);
 
 /* tom: the thread system is initialized in two steps.
  * The first is thread_init -- it sets up the ready list,
@@ -771,7 +770,7 @@ add_to_readylist (struct list *list, struct list_elem *thread_elem)
     }
 }
 
-static void
+void
 priorityDonate(struct thread *cur)
 {
   struct thread *curHolder = cur->blockingLock->holder;

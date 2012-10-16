@@ -216,7 +216,7 @@ lock_acquire (struct lock *lock)
 
   struct thread *cur = thread_current ();
 
-  if (lock->semaphore->value == 0)
+  if (lock->semaphore.value == 0)
     {
       cur->blockingLock = lock;
       priorityDonate (cur);
@@ -246,6 +246,9 @@ lock_try_acquire (struct lock *lock)
     {
       struct thread *cur = thread_current ();
       lock->holder = cur;
+      // we are trying to acquire the lock that means
+      // we are not on the waiting list. but it does't
+      // hurt to check this condition. delete later
       if (cur->blockingLock == lock)
 	cur->blockingLock = NULL;
     }
@@ -263,6 +266,9 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  //  struct thread *cur = thread_current ();
+  //  cur->priority = cur->oldPriority;
+  // maybe consider set old priority to priority too? But it shouldn't matter
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

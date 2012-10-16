@@ -174,5 +174,7 @@ int thread_get_load_avg (void);
 
 /* thread priority comparator */
 bool less(const struct list_elem *, const struct list_elem *, void * UNUSED);
+/* priority donation */
+void priorityDonate(struct thread *cur);
 
 #endif /* threads/thread.h */
