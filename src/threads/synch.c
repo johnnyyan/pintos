@@ -436,7 +436,7 @@ bool sentinel_discharge(struct sentinel *s){
 	
 	/* unblock all waiters if resources exhausted */
 	if(s->remaining < 1 && s->t != NULL){
-		thread_unblock (s->t);
+		thread_unblock_no_schedule(s->t);
 		toReturn = true;
 	}
 	else toReturn = false;

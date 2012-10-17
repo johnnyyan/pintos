@@ -274,6 +274,28 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
+/* a version of unblock that does not have a code path to
+ * schedule().  This lets client code call schedule() at its
+ * discretion later.  Used in time interrupt so we don't call
+ * schedule many times when waking many threads at once.*/
+void
+thread_unblock_no_schedule (struct thread *t) 
+{
+  enum intr_level old_level;
+
+  ASSERT (is_thread (t));
+
+  old_level = intr_disable ();
+  ASSERT (t->status == THREAD_BLOCKED);
+
+
+  t->status = THREAD_READY;
+  list_insert_ordered(&ready_list, &t->elem, less, NULL);
+  
+
+  intr_set_level (old_level);
+}
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
@@ -753,4 +775,8 @@ int max_held_priority(struct thread *cur){
 bool thread_valid_func(const struct list_elem *e, void *aux UNUSED){
 	ASSERT(e!=NULL);
 	return is_thread(list_entry(e,struct thread,elem));
+}
+
+bool higher_thread_on_ready(){
+	return (list_size(&ready_list) > 0) && (thread_current()->priority < list_entry(ready_list.head.next, struct thread, elem)->priority);
 }

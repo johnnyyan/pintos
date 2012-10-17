@@ -154,6 +154,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
+void thread_unblock_no_schedule (struct thread *t);
 
 struct thread *thread_current (void);
 tid_t thread_tid (void);
@@ -180,8 +181,13 @@ bool less(const struct list_elem *, const struct list_elem *, void * UNUSED);
 void priorityDonate(struct thread *cur);
 int max_held_priority(struct thread *cur);
 bool thread_valid_func(const struct list_elem *e, void *aux);
+
+/* tells us if a higher priority thread available */
+bool higher_thread_on_ready(void);
+
+/*
 struct priority_elem{
 	int priority;
 	struct list_elem elem;
-};
+};*/
 #endif /* threads/thread.h */

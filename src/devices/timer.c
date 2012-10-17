@@ -98,6 +98,8 @@ timer_sleep (int64_t ticks)
   /* return immediately if we don't need to sleep */
   if(ticks<1) return;
   
+  intr_disable();
+  
   /* add this to the list of waiting timers */
   struct sleepingTimer s;
   sentinel_init(&(s.s),ticks);
@@ -105,12 +107,13 @@ timer_sleep (int64_t ticks)
   /* its safe to pass a pointer to this thread's stack since it will
    *   be sleeping and therefore won't pop the timer off while still
    *   in use. */
-  intr_disable();
+  
   list_push_back (&sleepingTimers, (struct list_elem*)(&s.listElems));
-  intr_enable();
+  
   
   /*will be woken up by timer_interrupt when the timer expires */
   sentinel_twiddle(&(s.s));
+  intr_enable();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -189,8 +192,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   
   enum intr_level old_level = intr_disable ();
-  int oldPriority = thread_current()->priority;
-  thread_current()->priority = PRI_MAX;
   
   ticks++;
   
@@ -198,6 +199,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
    *  their timer is up. */
   struct list_elem * e= list_begin(&sleepingTimers);
   int loopSize = list_size(&sleepingTimers), i=0;
+  bool unblockedAThread = false;
   for (i = 0; i<loopSize; e = list_begin(&sleepingTimers),i++)
      {
 	   list_remove(e);
@@ -206,13 +208,19 @@ timer_interrupt (struct intr_frame *args UNUSED)
        
        if(!unblocked){
 		 list_push_back(&sleepingTimers,e);   
-	   }
+	   } 
+	   else unblockedAThread = true;
      }
   
-  thread_current()->priority = oldPriority;
-  intr_set_level (old_level);
   thread_tick ();
   
+  //if we unblocked a higher priority thread, we will slice it in when
+  // the interrupt returns.
+  if(unblockedAThread && higher_thread_on_ready())
+	intr_yield_on_return();
+  
+  
+  intr_set_level (old_level);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
