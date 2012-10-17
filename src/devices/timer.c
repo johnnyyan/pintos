@@ -31,6 +31,7 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+/* A list of sleeping threads */
 static struct list sleepingTimers;
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
@@ -95,14 +96,15 @@ timer_sleep (int64_t ticks)
 {
   ASSERT (intr_get_level () == INTR_ON);
   
-  /* return immediately if we don't need to sleep */
-  if(ticks<1) return;
+  /* Return immediately if we don't need to sleep */
+  if (ticks < 1) 
+    return;
   
   intr_disable();
   
   /* add this to the list of waiting timers */
   struct sleepingTimer s;
-  sentinel_init(&(s.s),ticks);
+  sentinel_init (&(s.s), ticks);
   
   /* its safe to pass a pointer to this thread's stack since it will
    *   be sleeping and therefore won't pop the timer off while still
@@ -189,8 +191,7 @@ timer_print_stats (void)
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
-{
-  
+{  
   enum intr_level old_level = intr_disable ();
   
   ticks++;

@@ -195,7 +195,6 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
-  //list_init(&lock->prioritiesAvailable);
   sema_init (&lock->semaphore, 1);
 }
 
@@ -218,7 +217,7 @@ lock_acquire (struct lock *lock)
 
   struct thread *cur = thread_current ();
 
-//is the lock acquire is going to fail, then lets donate our priority
+  // If the lock acquire is going to fail, then lets donate our priority
   if (lock->semaphore.value == 0)
     {
       cur->blockingLock = lock;
@@ -227,11 +226,9 @@ lock_acquire (struct lock *lock)
     
   sema_down (&lock->semaphore);
   
-  
-  
   lock->holder = cur;
   cur->blockingLock = NULL;
-  list_push_back(&cur->locksHeld,&lock->elem);
+  list_push_back (&cur->locksHeld, &lock->elem);
   intr_set_level (old_level);
 }
 
@@ -256,7 +253,7 @@ lock_try_acquire (struct lock *lock)
       lock->holder = cur;
       cur->blockingLock = NULL;
       //add this to the list of locks this thread holds
-      list_push_back(&cur->locksHeld,&lock->elem);
+      list_push_back (&cur->locksHeld, &lock->elem);
     }
   return success;
 }
@@ -277,13 +274,12 @@ lock_release (struct lock *lock)
   struct thread *cur = thread_current ();
   lock->holder = NULL;
   
-  //remove the lock from the list of locks held by this thread
-  list_remove(&lock->elem);
+  // Remove the lock from the list of locks held by this thread
+  list_remove (&lock->elem);
   
-  //update the priority of this thread in case it was using one donated
-  //  to it by a waiter of this lock.
-  cur->priority = max_held_priority(cur);
-  
+  // Update the priority of this thread in case it was using one donated
+  // to it by a waiter of this lock.
+  cur->priority = max_held_priority (cur);
   
   sema_up (&lock->semaphore);
   intr_set_level (old_level);
@@ -358,7 +354,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   
-  //insert this waiter into the waiters list in an order that preserves priority
+  // Insert this waiter into the waiters list in an order that preserves priority
   waiter.priority = thread_current()->priority;
   list_insert_ordered (&cond->waiters, &waiter.elem, condVarLess, NULL);
   lock_release (lock);
@@ -402,27 +398,32 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
-//Initialize the sentinel.
-void sentinel_init(struct sentinel *s, int64_t initialRemaining){
-	ASSERT(s != NULL);
-	s->remaining = initialRemaining;
-	s->t = NULL;
+// Initialize the sentinel.
+void 
+sentinel_init (struct sentinel *s, int64_t initialRemaining)
+{
+  ASSERT (s != NULL);
+  s->remaining = initialRemaining;
+  s->t = NULL;
 }
 
-//registers one's self as the waiting thread.  We coded a version of this
-//  with a waiter's list, but in order to keep it no more complicated than
-//  needed, we went with only 1 waiting thread.
-//This thread waits/blocks until the resources in this sentinel are exhauseted.
-void sentinel_twiddle(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
-	ASSERT(s != NULL);
+// Registers one's self as the waiting thread.  We coded a version of this
+// with a waiter's list, but in order to keep it no more complicated than
+// needed, we went with only 1 waiting thread.
+// This thread waits/blocks until the resources in this sentinel are exhauseted.
+void 
+sentinel_twiddle (struct sentinel *s)
+{
+  enum intr_level old_level = intr_disable ();
+  ASSERT (s != NULL);
 
-	if(s->remaining > 0 && s->t==NULL){
-		s->t = thread_current();
-		thread_block();
-	 }
-	 intr_set_level(old_level);
+  if (s->remaining > 0 && s->t == NULL){
+    s->t = thread_current ();
+    thread_block ();
+  }
+  intr_set_level (old_level);
 }
+
 
 //lower the amount of resources available and wake up the waiter if
 //  we have exhausted all of them.
@@ -440,29 +441,31 @@ bool sentinel_discharge(struct sentinel *s){
 		toReturn = true;
 	}
 	else toReturn = false;
-	
-	intr_set_level(old_level);
-	return toReturn;
+	 
+  intr_set_level (old_level);
+  return toReturn;
 }
 
-//charge the sentinel.  That is - raise the count of resources available.
-void sentinel_charge(struct sentinel *s){
-	enum intr_level old_level = intr_disable ();
-	(s->remaining)++;
-	intr_set_level(old_level);
+// Charge the sentinel.  That is - raise the count of resources available.
+void 
+sentinel_charge (struct sentinel *s)
+{
+  enum intr_level old_level = intr_disable ();
+  (s->remaining)++;
+  intr_set_level (old_level);
 }
 
-//comparator function used for sorting waiters in a condition variable list
-//  sorts by element priority.
+// Comparator function used for sorting waiters in a condition variable list
+// sorts by element priority.
 bool 
 condVarLess (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-	ASSERT (a!=NULL);
-	ASSERT (b!=NULL);
+  ASSERT (a!=NULL);
+  ASSERT (b!=NULL);
   
-	struct semaphore_elem * s1 = list_entry (a, struct semaphore_elem, elem);
-	struct semaphore_elem * s2 = list_entry (b, struct semaphore_elem, elem);
-	
-	return s1->priority > s2->priority;
+  struct semaphore_elem * s1 = list_entry (a, struct semaphore_elem, elem);
+  struct semaphore_elem * s2 = list_entry (b, struct semaphore_elem, elem);
+  
+  return s1->priority > s2->priority;
 }
 
