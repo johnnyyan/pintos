@@ -228,6 +228,7 @@ lock_acquire (struct lock *lock)
   
   lock->holder = cur;
   cur->blockingLock = NULL;
+  // Add to the list of locks this thread holds
   list_push_back (&cur->locksHeld, &lock->elem);
   intr_set_level (old_level);
 }
@@ -252,7 +253,6 @@ lock_try_acquire (struct lock *lock)
       struct thread *cur = thread_current ();
       lock->holder = cur;
       cur->blockingLock = NULL;
-      //add this to the list of locks this thread holds
       list_push_back (&cur->locksHeld, &lock->elem);
     }
   return success;
@@ -355,7 +355,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   sema_init (&waiter.semaphore, 0);
   
   // Insert this waiter into the waiters list in an order that preserves priority
-  waiter.priority = thread_current()->priority;
+  waiter.priority = thread_current ()->priority;
   list_insert_ordered (&cond->waiters, &waiter.elem, condVarLess, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
@@ -398,7 +398,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
-// Initialize the sentinel.
+/* Initialize the sentinel. */
 void 
 sentinel_init (struct sentinel *s, int64_t initialRemaining)
 {
@@ -407,46 +407,50 @@ sentinel_init (struct sentinel *s, int64_t initialRemaining)
   s->t = NULL;
 }
 
-// Registers one's self as the waiting thread.  We coded a version of this
-// with a waiter's list, but in order to keep it no more complicated than
-// needed, we went with only 1 waiting thread.
-// This thread waits/blocks until the resources in this sentinel are exhauseted.
+/* Registers one's self as the waiting thread.  We coded a version of this
+ * with a waiter's list, but in order to keep it no more complicated than
+ * needed, we went with only 1 waiting thread.
+ * This thread waits/blocks until the resources in this sentinel are exhauseted.*/
 void 
 sentinel_twiddle (struct sentinel *s)
 {
   enum intr_level old_level = intr_disable ();
   ASSERT (s != NULL);
 
-  if (s->remaining > 0 && s->t == NULL){
-    s->t = thread_current ();
-    thread_block ();
-  }
+  if (s->remaining > 0 && s->t == NULL)
+    {
+      s->t = thread_current ();
+      thread_block ();
+    }
   intr_set_level (old_level);
 }
 
-
-//lower the amount of resources available and wake up the waiter if
-//  we have exhausted all of them.
-bool sentinel_discharge(struct sentinel *s){
-	ASSERT(s!=NULL);
-	
-	enum intr_level old_level = intr_disable ();
-	(s->remaining)--;
-	
-	bool toReturn;
-	
-	/* unblock all waiters if resources exhausted */
-	if(s->remaining < 1 && s->t != NULL){
-		thread_unblock_no_schedule(s->t);
-		toReturn = true;
-	}
-	else toReturn = false;
+/* Lower the amount of resources available and wake up the waiter if
+ * we have exhausted all of them. */
+bool 
+sentinel_discharge (struct sentinel *s)
+{
+  ASSERT(s!=NULL);
+  
+  enum intr_level old_level = intr_disable ();
+  (s->remaining)--;
+  
+  bool toReturn;
+  
+  /* Unblock all waiters if resources exhausted */
+  if (s->remaining < 1 && s->t != NULL)
+    {
+      thread_unblock_no_schedule (s->t);
+      toReturn = true;
+    }
+  else 
+    toReturn = false;
 	 
   intr_set_level (old_level);
   return toReturn;
 }
 
-// Charge the sentinel.  That is - raise the count of resources available.
+/* Charge the sentinel.  That is - raise the count of resources available. */
 void 
 sentinel_charge (struct sentinel *s)
 {
@@ -455,13 +459,13 @@ sentinel_charge (struct sentinel *s)
   intr_set_level (old_level);
 }
 
-// Comparator function used for sorting waiters in a condition variable list
-// sorts by element priority.
+/* Comparator function used for sorting waiters in a condition variable list
+ * sorts by element priority. */
 bool 
 condVarLess (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  ASSERT (a!=NULL);
-  ASSERT (b!=NULL);
+  ASSERT (a != NULL);
+  ASSERT (b != NULL);
   
   struct semaphore_elem * s1 = list_entry (a, struct semaphore_elem, elem);
   struct semaphore_elem * s2 = list_entry (b, struct semaphore_elem, elem);

@@ -129,10 +129,9 @@ struct thread
 #endif
 
     /* Used for priority scheduling/donation */
-    int oldPriority;
-    struct lock *blockingLock;
-    struct list locksHeld;
-    struct priority_elem *pe;
+    int oldPriority;                    /* Priority before donation */
+    struct lock *blockingLock;          /* Thread is waiting for this lock */
+    struct list locksHeld;              /* List of locks held by thread */
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -176,15 +175,13 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 /* Thread priority comparator */
-bool less(const struct list_elem *, const struct list_elem *, void * UNUSED);
-/* Priority donation */
-void priorityDonate(struct thread *cur);
-int max_held_priority(struct thread *cur);
-bool thread_valid_func(const struct list_elem *e, void *aux);
+bool less (const struct list_elem *, const struct list_elem *, void * UNUSED);
+/* Priority donation functions */
+void priorityDonate (struct thread *cur);
+int max_held_priority (struct thread *cur);
+bool thread_valid_func (const struct list_elem *e, void *aux);
 
-
-/* tells us if a higher priority thread available */
-bool higher_thread_on_ready(void);
-
+/* Tells us if a higher priority thread available on ready list */
+bool higher_thread_on_ready (void);
 
 #endif /* threads/thread.h */
