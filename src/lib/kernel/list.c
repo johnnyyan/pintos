@@ -523,20 +523,24 @@ list_min (struct list *list, list_less_func *less, void *aux)
   return min;
 }
 
-//bubble an element up in its list based on the criteria in list_less_func
-//list_valid_func tells us if we see a valid element as opposed to the list head
-void bubble_up (struct list_elem *e,list_less_func *less, list_valid_func *isValid, void *aux, void *aux2){
-	struct list_elem *up = e->prev;
-	
-	while(isValid(up,aux2) && less(e, up, aux)){
-		up->next = e->next;
-		e->prev = up->prev;
-		e->next = up;
-		up->prev = e;
-		up = e->prev;
-	}
-	
-	up->next = e;
+/* Bubble an element up in its list based on the criteria in list_less_func
+ * list_valid_func tells us if we see a valid element as opposed to the list head */
+void 
+bubble_up (struct list_elem *e, list_less_func *less, 
+	   list_valid_func *isValid, void *aux, void *aux2)
+{
+  struct list_elem *up = e->prev;
+  
+  while (isValid (up, aux2) && less (e, up, aux))
+    {
+      up->next = e->next;
+      e->next->prev = up;
+      e->prev = up->prev;
+      up->prev->next = e;
+      e->next = up;
+      up->prev = e;
+      up = e->prev;
+    }
 }
 
  

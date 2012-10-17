@@ -41,7 +41,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleepingTimers);
+  list_init (&sleepingTimers);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -102,20 +102,18 @@ timer_sleep (int64_t ticks)
   
   intr_disable();
   
-  /* add this to the list of waiting timers */
+  /* Add to the list of waiting timers */
   struct sleepingTimer s;
   sentinel_init (&(s.s), ticks);
   
-  /* its safe to pass a pointer to this thread's stack since it will
-   *   be sleeping and therefore won't pop the timer off while still
-   *   in use. */
-  
+  /* It's safe to pass a pointer to this thread's stack since it will
+   * be sleeping and therefore won't pop the timer off while still
+   * in use. */
   list_push_back (&sleepingTimers, (struct list_elem*)(&s.listElems));
   
-  
-  /*will be woken up by timer_interrupt when the timer expires */
-  sentinel_twiddle(&(s.s));
-  intr_enable();
+  /* Thread will be woken up by timer_interrupt when the timer expires */
+  sentinel_twiddle (&(s.s));
+  intr_enable ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -196,30 +194,29 @@ timer_interrupt (struct intr_frame *args UNUSED)
   
   ticks++;
   
-  /* decrement remaining amount on all sleeping timers and unblock if 
-   *  their timer is up. */
-  struct list_elem * e= list_begin(&sleepingTimers);
-  int loopSize = list_size(&sleepingTimers), i=0;
+  /* Decrement remaining amount on all sleeping timers and 
+   * unblock if their timer is up. */
+  struct list_elem *e = list_begin (&sleepingTimers);
+  int loopSize = list_size (&sleepingTimers), i = 0;
   bool unblockedAThread = false;
-  for (i = 0; i<loopSize; e = list_begin(&sleepingTimers),i++)
-     {
-	   list_remove(e);
-
-       bool unblocked = sentinel_discharge(&(list_entry (e, struct sleepingTimer, listElems)->s));
+  for (i = 0; i < loopSize; e = list_begin (&sleepingTimers), i++)
+    {
+      list_remove(e);
+      
+      bool unblocked = sentinel_discharge (&(list_entry (e, struct sleepingTimer, listElems)->s));
        
-       if(!unblocked){
-		 list_push_back(&sleepingTimers,e);   
-	   } 
-	   else unblockedAThread = true;
-     }
+      if (!unblocked)
+	list_push_back (&sleepingTimers,e);    
+      else 
+	unblockedAThread = true;
+    }
   
   thread_tick ();
   
-  //if we unblocked a higher priority thread, we will slice it in when
-  // the interrupt returns.
-  if(unblockedAThread && higher_thread_on_ready())
-	intr_yield_on_return();
-  
+  /* If we unblocked a higher priority thread, we will slice it in when
+   * the interrupt returns. */
+  if (unblockedAThread && higher_thread_on_ready ())
+    intr_yield_on_return ();
   
   intr_set_level (old_level);
 }
