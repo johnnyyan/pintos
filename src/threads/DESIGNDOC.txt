@@ -7,26 +7,23 @@
 Matthew Bryan, Jijiang Yan 
 
 ---- PRELIMINARIES ----
->> If you have any preliminary comments on your submission, notes for
->> the TAs, or extra credit, please give them here.
+All credits are Matthew's and all mistakes are Jijiang's. 
+I really mean it.
 
-None.
+(We didn't use any offline resources)
 
->> Please cite any offline or online sources you consulted while
->> preparing your submission, other than the Pintos documentation,
->> course text, and lecture notes.
-
-None.
 
 			CONTEXT SWITCHING
 			=================
 
 ---- STACK RESULTS ----
-When timer interrupts is turned off, the backtrace results are shown below.
-When "first yielder" finishes, "second yielder" will delete its stack. Because
-when "first yielder" finishes by calling thread_exit() which eventually switches
-thread from "first yielder" to "second yielder" which is now the running thread,
-under which thread_schedule_tail cleans up "first yielder" stack.
+When timer interrupt is turned off, the backtrace results are shown below.
+When "first yielder" finishes by calling thread_exit(), "second yielder" 
+will delete its stack. Because when "first yielder" calls thread_exit(), it
+switches thread from "first yielder" to "second yielder" which is now the 
+running thread, under which thread_schedule_tail is called. At that moment 
+the "first yielder" thread is alreay is status THREAD_DYING, hence it stack
+would be cleaned by "second yielder" thread.
 
 Right before call to switch_thread () (called by main):
 #0  schedule () at ../../threads/thread.c:625
@@ -142,8 +139,8 @@ we get this stack trace:
 
 ---- DATA STRUCTURES ----
 
-The struct sleepingTimer is a clock alarm for a thread who is 
-sleeping. The inner struct sentinel used to record the remaining 
+The struct sleepingTimer is a clock alarm for a thread who is put 
+to sleep. The inner struct sentinel used to record the remaining 
 time for a particular thread in sleeping. When the remaining time
 expires, the thread will be awoken up. The list sleepingTimers in 
 timer.c is used to recorded the list of sleeping threads which are
@@ -172,18 +169,28 @@ static struct list sleepingTimers;
 ---- ALGORITHMS ----
 
 thread_sleep() initializes an alarm clock "sleepingTimer" with its initial
-remaining time and adds onto the list of waiting timers. And then it calls
-sentinel_twiddle() to give that timer to a thread, which waits until the
-remaining time is up to wake up again.  
+remaining time and adds it onto the list of alarm clocks sleepingTimers. 
+Then it calls sentinel_twiddle() to give that timer to the current running 
+thread, which is immediately blocked. Later when a time interruption occurs,
+loop through all the alarm clocks/threads on sleepingTimers, decrement its
+remaining time. If its value is already 0, time is up, the corresponding
+thread is unblocked, and the alarm clock is removed from sleepingTimers;
+Otherwise we still put the alarm clock on the sleepingTimers list.   
 
+---- SYNCHRONIZATION ---- 
 
----- SYNCHRONIZATION ----
- 
-???
+mayby not needed?
 
 ---- RATIONALE ----
 
-??? 
+This design has the advantage of splicing out the alarm clock struct 
+aka `struct sleepingTimer' out of the thread structure. Only when we 
+want to put some thread into sleep, we would assign an alarm clock to
+that thread. Moreover these alarm clocks are put onto a list, when time
+interrupt occurs we could only go through those threads holding an alarm
+clcok to decrement their remaining time. 
+
+(Disadvantage?)
 
 
 			PRIORITY SCHECULING
